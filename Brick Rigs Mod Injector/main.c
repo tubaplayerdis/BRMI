@@ -147,7 +147,7 @@ unsigned long SFindProcessID(const wchar_t* processName)
     {
         while (Process32Next(snapshot, &entry) == TRUE)
         {
-            if (_stricmp(entry.szExeFile, processName) == 0)
+            if (wcscmp(entry.szExeFile, processName) == 0)
             {
                 return entry.th32ProcessID;
             }
@@ -227,6 +227,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     DWORD pid = SFindProcessID(L"BrickRigs-Win64-Shipping.exe");
+    printf("Process ID: %lu", pid);
     if (pid == 0) {
         MessageBox(GetActiveWindow(), L"Brick Rigs was not found! Please inject again with Brick Rigs running.", L"Brick Rigs not found", MB_OK);
         DestroyConsole();
@@ -244,7 +245,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
-    const char* dllPath = "BrickRigsCommandInterpreter.dll";
+    const char* dllPath[MAX_PATH];
+    GetFullPathNameA("BrickRigsCommandInterpreter.dll", MAX_PATH, dllPath, NULL);
 
     HMODULE hMods[1024];
     DWORD cbNeeded;
@@ -267,8 +269,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
     }
 
-    LPVOID alloc = VirtualAllocEx(hProcess, NULL, strlen(dllPath) + 1,
-        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    LPVOID alloc = VirtualAllocEx(hProcess, NULL, strlen(dllPath) + 1, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!alloc) {
         MessageBox(GetActiveWindow(), L"FAILED to allocate memory in Brick Rigs. Please try agian", L"Injection ERROR", MB_OK);
         CloseHandle(hProcess);
@@ -287,7 +288,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
     LPVOID loadLib = (LPVOID)GetProcAddress(hKernel32, "LoadLibraryA");
 
-    HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)loadLib, alloc, 0, NULL);
+    if (hKernel32 == NULL || loadLib == NULL) {
+        MessageBox(GetActiveWindow(), L"Failed to find kernel dll or LoadLibraryA", L"Injection ERROR", MB_OK);
+        VirtualFreeEx(hProcess, alloc, 0, MEM_RELEASE);
+        CloseHandle(hProcess);
+        DestroyConsole();
+        return 1;
+    }
+
+    HANDLE hThread = CreateRemoteThread(hProcess, 0, 0, (LPTHREAD_START_ROUTINE)loadLib, alloc, 0, 0);
     if (!hThread) {
         MessageBox(GetActiveWindow(), L"FAILED to create remote thread. Please try agian", L"Injection ERROR", MB_OK);
         VirtualFreeEx(hProcess, alloc, 0, MEM_RELEASE);
@@ -296,13 +305,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
-    WaitForSingleObject(hThread, INFINITE);
+    if (WaitForSingleObject(hThread, INFINITE) == WAIT_FAILED)
+    {
+        DWORD errorCode = GetLastError(); // Get the last Win32 error
+        wchar_t errorMessage[256];
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), errorMessage, sizeof(errorMessage) / sizeof(wchar_t), NULL);
+        printf("Win32 Error: %d - %ls\n", errorCode, errorMessage);
+        MessageBox(GetActiveWindow(), L"FAILED to inject. Please try agian", L"Injection ERROR", MB_OK);
+        VirtualFreeEx(hProcess, alloc, 0, MEM_RELEASE);
+        CloseHandle(hProcess);
+        DestroyConsole();
+        return 1;
+    }
+
     VirtualFreeEx(hProcess, alloc, 0, MEM_RELEASE);
     CloseHandle(hThread);
     CloseHandle(hProcess);
 
-    MessageBox(GetActiveWindow(), L"Sucsessfully Injected!", L"Injection SUCSESS", MB_OK); //Check both of these for spelling
-    printf("Sucsessfully Injected!\n");
+    MessageBox(GetActiveWindow(), L"Successfully Injected!", L"Injection SUCCESS", MB_OK); //Check both of these for spelling
+    printf("Successfully Injected!\n");
     
     DestroyConsole();
 	return 0;
