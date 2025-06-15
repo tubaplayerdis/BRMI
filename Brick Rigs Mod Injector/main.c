@@ -3,13 +3,38 @@
 #include <stdio.h>
 #include <tlhelp32.h>
 #include "console.h"
+#include <shlwapi.h>
+#include <psapi.h>
 
 #pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "Wininet.lib")
 #pragma comment(lib, "Version.lib")
 #pragma comment(lib, "Kernel32.lib")
+#pragma comment(lib, "Shlwapi.lib")
 
 #pragma region HELPER_FUNCTIONS
+BOOL EnableDebugPrivilege()
+{
+    HANDLE hToken;
+    LUID luid;
+    TOKEN_PRIVILEGES tp;
+
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        return FALSE;
+
+    if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid))
+        return FALSE;
+
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL);
+    CloseHandle(hToken);
+    return GetLastError() == ERROR_SUCCESS;
+}
+
+
 HRESULT DownloadFileWithWinINet(const WCHAR* szUrl, const WCHAR* szFileName)
 {
     HINTERNET hInternetSession = NULL;
@@ -141,6 +166,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     char failedInternet = 0;
     char failedDownload = 0;
 
+    if (!EnableDebugPrivilege()) {
+        MessageBox(GetActiveWindow(), L"Could not enable debug privilges to inject the dll!", L"Permissions Failure", MB_OK);
+        DestroyConsole();
+    }
 
     //Initalize the console
     InitConsole();
@@ -206,12 +235,37 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
     if (!hProcess) {
+        DWORD errorCode = GetLastError(); // Get the last Win32 error
+        wchar_t errorMessage[256];
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), errorMessage, sizeof(errorMessage) / sizeof(wchar_t), NULL);
+        printf("Win32 Error: %d - %ls\n", errorCode, errorMessage);
         MessageBox(GetActiveWindow(), L"FAILED to open Brick Rigs! Please try agian", L"Injection ERROR", MB_OK);
         DestroyConsole();
         return 1;
     }
 
     const char* dllPath = "BrickRigsCommandInterpreter.dll";
+
+    HMODULE hMods[1024];
+    DWORD cbNeeded;
+    unsigned int i;
+    //Check if BrickRigsCommandInterpreter.dll is Already Loaded
+    if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded))
+    {
+        for (i = 0; i < (cbNeeded / sizeof(HMODULE)); i++)
+        {
+            TCHAR szModName[MAX_PATH];
+            if (GetModuleFileNameEx(hProcess, hMods[i], szModName, sizeof(szModName) / sizeof(TCHAR)))
+            {
+                if (StrStr(szModName, L"BrickRigsCommandInterpreter.dll") != NULL) {
+                    MessageBox(GetActiveWindow(), L"BrickRigsCommandInterpreter.dll is already injected! It can be uninjected by pressing /", L"Already Injected!", MB_OK);
+                    CloseHandle(hProcess);
+                    DestroyConsole();
+                    return 1;
+                }
+            }
+        }
+    }
 
     LPVOID alloc = VirtualAllocEx(hProcess, NULL, strlen(dllPath) + 1,
         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -231,11 +285,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
-    FARPROC loadLib = GetProcAddress(hKernel32, "LoadLibraryA");
+    LPVOID loadLib = (LPVOID)GetProcAddress(hKernel32, "LoadLibraryA");
 
-    HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0,
-        (LPTHREAD_START_ROUTINE)loadLib,
-        alloc, 0, NULL);
+    HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)loadLib, alloc, 0, NULL);
     if (!hThread) {
         MessageBox(GetActiveWindow(), L"FAILED to create remote thread. Please try agian", L"Injection ERROR", MB_OK);
         VirtualFreeEx(hProcess, alloc, 0, MEM_RELEASE);
@@ -244,13 +296,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
-    printf("Sucsessfully Injected!\n");
-
     WaitForSingleObject(hThread, INFINITE);
     VirtualFreeEx(hProcess, alloc, 0, MEM_RELEASE);
     CloseHandle(hThread);
     CloseHandle(hProcess);
 
+    MessageBox(GetActiveWindow(), L"Sucsessfully Injected!", L"Injection SUCSESS", MB_OK); //Check both of these for spelling
+    printf("Sucsessfully Injected!\n");
     
     DestroyConsole();
 	return 0;
