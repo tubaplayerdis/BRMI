@@ -13,28 +13,6 @@
 #pragma comment(lib, "Shlwapi.lib")
 
 #pragma region HELPER_FUNCTIONS
-BOOL EnableDebugPrivilege()
-{
-    HANDLE hToken;
-    LUID luid;
-    TOKEN_PRIVILEGES tp;
-
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
-        return FALSE;
-
-    if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid))
-        return FALSE;
-
-    tp.PrivilegeCount = 1;
-    tp.Privileges[0].Luid = luid;
-    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-    AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL);
-    CloseHandle(hToken);
-    return GetLastError() == ERROR_SUCCESS;
-}
-
-
 HRESULT DownloadFileWithWinINet(const WCHAR* szUrl, const WCHAR* szFileName)
 {
     HINTERNET hInternetSession = NULL;
@@ -165,11 +143,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     PLARGE_INTEGER dwBRCISize = 0;
     char failedInternet = 0;
     char failedDownload = 0;
-
-    if (!EnableDebugPrivilege()) {
-        MessageBox(GetActiveWindow(), L"Could not enable debug privilges to inject the dll!", L"Permissions Failure", MB_OK);
-        DestroyConsole();
-    }
 
     //Initalize the console
     InitConsole();

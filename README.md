@@ -1,5 +1,3 @@
 # Brick Rigs Mod Injector
 
-## DEVELOPMENT WILL NOT BE DONE THE WEEK OF 6/8 and will resume 6/14
-
-## THIS PROJECT IS STILL BEING DEVELOPLED AND DOES NOT WORK. DO NOT USE RIGHT NOW.
+The Brick Rigs Mod Injector automatically downloads BRCI and then injects it into a running instance of Brick Rigs. No Admin Required.
