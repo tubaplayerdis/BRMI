@@ -148,7 +148,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     InitConsole();
 
     //
-	printf("Downloading Brick Rigs Command Interpreter.\n");
+	printf("Downloading Brick Rigs Command Engine.\n");
     if (!InternetCheckConnection(L"https://www.google.com", FLAG_ICC_FORCE_CONNECTION, 0)) {
         printf("WARNING: Internet connection failed! DEFAULTING on pre-existing file.");
         failedInternet = 1;
@@ -156,7 +156,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (!failedInternet)
     {
-        HRESULT res = DownloadFileWithWinINet(L"https://aaronwilk.dev/pages/brci/BrickRigsCommandInterpreter.dll", L"BrickRigsCommandInterpreter.dll");
+        HRESULT res = DownloadFileWithWinINet(L"https://aaronwilk.dev/pages/brce/BrickRigsCommandEngine.dll", L"BrickRigsCommandEngine.dll");
         if (res != S_OK) {
             printf("The download experienced an error!\n");
             LPVOID msgBuffer = NULL;
@@ -173,7 +173,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
   
     HRESULT hret = CreateFile(
-        L"BrickRigsCommandInterpreter.dll",
+        L"BrickRigsCommandEngine.dll",
         GENERIC_READ,          // We only need read access to get its size
         FILE_SHARE_READ,       // Allow other processes to read the file
         NULL,                  // Default security attributes
@@ -184,7 +184,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     GetFileSizeEx(hret, &dwBRCISize);
 
-    wchar_t errorMsg[256] = L"BrickRigsCommandInterpreter.dll was NOT found. Please inject again. See the following codes:";
+    wchar_t errorMsg[256] = L"BrickRigsCommandEngine.dll was NOT found. Please inject again. See the following codes:";
 
     if (failedInternet) {
         wcscat(errorMsg, L"\nInternet Connection FAILED");
@@ -219,12 +219,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     const char* dllPath[MAX_PATH];
-    GetFullPathNameA("BrickRigsCommandInterpreter.dll", MAX_PATH, dllPath, NULL);
+    GetFullPathNameA("BrickRigsCommandEngine.dll", MAX_PATH, dllPath, NULL);
 
     HMODULE hMods[1024];
     DWORD cbNeeded;
     unsigned int i;
-    //Check if BrickRigsCommandInterpreter.dll is Already Loaded
+    //Check if BrickRigsCommandEngine.dll is Already Loaded
     if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded))
     {
         for (i = 0; i < (cbNeeded / sizeof(HMODULE)); i++)
@@ -232,8 +232,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             TCHAR szModName[MAX_PATH];
             if (GetModuleFileNameEx(hProcess, hMods[i], szModName, sizeof(szModName) / sizeof(TCHAR)))
             {
-                if (StrStr(szModName, L"BrickRigsCommandInterpreter.dll") != NULL) {
-                    MessageBox(GetActiveWindow(), L"BrickRigsCommandInterpreter.dll is already injected! It can be uninjected by pressing /", L"Already Injected!", MB_OK);
+                if (StrStr(szModName, L"BrickRigsCommandEngine.dll") != NULL) {
+                    MessageBox(GetActiveWindow(), L"BrickRigsCommandEngine.dll is already injected! It can be uninjected by pressing /", L"Already Injected!", MB_OK);
                     CloseHandle(hProcess);
                     DestroyConsole();
                     return 1;
