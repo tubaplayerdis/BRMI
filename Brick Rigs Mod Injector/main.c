@@ -138,7 +138,10 @@ unsigned long SFindProcessID(const wchar_t* processName)
 #pragma endregion
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    //Initalize basic variables 
+    //TODO: Add command line arguments. one for the link the other for the dll name
+
+
+    //Initalize basic variables
     DWORD dwBRCIHandle = 0;
     PLARGE_INTEGER dwBRCISize = 0;
     char failedInternet = 0;
